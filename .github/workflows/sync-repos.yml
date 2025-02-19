@@ -21,20 +21,15 @@ jobs:
       run: |
         # 读取 repo.conf 文件
         while IFS= read -r line; do
-          if [[ $line =~ ^\[(.*)\] ]]; then
-            repo_name=${BASH_REMATCH[1]}
-          elif [[ $line =~ ^remote_repo\ =\ (.*) ]]; then
-            remote_repo=${BASH_REMATCH[1]}
-          elif [[ $line =~ ^own_repo\ =\ (.*) ]]; then
-            own_repo=${BASH_REMATCH[1]}
-          elif [[ $line =~ ^branch\ =\ (.*) ]]; then
-            branch=${BASH_REMATCH[1]}
-            # 同步仓库
-            echo "Syncing $repo_name..."
-            git remote add $repo_name https://github.com/$remote_repo.git
-            git fetch $repo_name
-            git checkout -b $branch $repo_name/$branch
-            git push origin $branch
-            git remote remove $repo_name
-          fi
+          [[ $line =~ ^\[(.*)\]$ ]] && section="${BASH_REMATCH[1]}" && continue
+          [[ $line =~ ^repo\ =\ (.*)$ ]] && remote_repo="${BASH_REMATCH[1]}" && continue
+          [[ $line =~ ^repo\ =\ (.*)$ ]] && own_repo="${BASH_REMATCH[1]}" && continue
+          [[ $line =~ ^repo\ =\ (.*)$ ]] && branch="${BASH_REMATCH[1]}" && continue
+          # 同步仓库
+          echo "Syncing $remote_repo -> $own_repo on branch $branch"
+          git remote add upstream https://github.com/$remote_repo.git || git remote set-url upstream https://github.com/$remote_repo.git
+          git fetch upstream $branch
+          git checkout $branch
+          git merge --ff-only upstream/$branch || echo "Merge conflict detected, skipping $own_repo"
+          git push origin $branch
         done < repo.conf
