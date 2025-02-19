@@ -19,11 +19,14 @@ jobs:
         repository: ${{ github.repository }}
         token: ${{ secrets.GITHUB_TOKEN }}
         fetch-depth: 0
-        
+
+    - name: Install GitHub CLI
+      run: |
+        sudo apt update && sudo apt install -y gh
+        gh auth status || echo "GitHub CLI installed"
+      
     - name: Sync repositories
       run: |
-        # 编译
-        sh sync_repos.sh
         
         # 读取 repo.conf 文件
         while IFS= read -r line; do
@@ -34,13 +37,26 @@ jobs:
           # 同步仓库
           echo "Syncing $remote_repo -> $own_repo on branch $branch"
           git clone "https://github.com/${remote_repo}" "${section}"
-          
+
+          # 进入子目录
           pushd ${section}
-          git remote add upstream https://github.com/$remote_repo.git || git remote set-url upstream https://github.com/$remote_repo.git
+
+          # 1️⃣ 检查 own_repo 是否存在
+          if ! gh repo view $GITHUB_ACTOR/$own_repo &>/dev/null; then
+            echo "Repository $own_repo not found. Forking from $remote_repo..."
+            
+            # 2️⃣ 尝试 fork
+            gh repo fork $remote_repo --clone=false --remote=true || {
+              echo "Forking failed! Ensure the token has 'public_repo' or 'repo' permissions."
+              exit 1
+            }
+          fi
+          
+          git remote add upstream https://github.com/$own_repo.git || git remote set-url upstream https://github.com/$own_repo.git
           git fetch upstream $branch
           git checkout $branch
-          git merge --ff-only upstream/$branch || echo "Merge conflict detected, skipping $own_repo"
-          git push origin $branch
+          git merge --ff-only origin/$branch || echo "Merge conflict detected, skipping $own_repo"
+          git push upstream $branch
           
           popd
         done < repo.conf
