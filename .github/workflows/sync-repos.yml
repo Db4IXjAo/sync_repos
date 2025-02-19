@@ -1,0 +1,40 @@
+name: Sync Repositories Daily
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # 每天 UTC 时间 00:00 执行
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  sync-repos:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout own repository
+      uses: actions/checkout@v3
+      with:
+        repository: ${{ github.repository }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+        
+    - name: Sync repositories
+      run: |
+        # 读取 repo.conf 文件
+        while IFS= read -r line; do
+          if [[ $line =~ ^\[(.*)\] ]]; then
+            repo_name=${BASH_REMATCH[1]}
+          elif [[ $line =~ ^remote_repo\ =\ (.*) ]]; then
+            remote_repo=${BASH_REMATCH[1]}
+          elif [[ $line =~ ^own_repo\ =\ (.*) ]]; then
+            own_repo=${BASH_REMATCH[1]}
+          elif [[ $line =~ ^branch\ =\ (.*) ]]; then
+            branch=${BASH_REMATCH[1]}
+            # 同步仓库
+            echo "Syncing $repo_name..."
+            git remote add $repo_name https://github.com/$remote_repo.git
+            git fetch $repo_name
+            git checkout -b $branch $repo_name/$branch
+            git push origin $branch
+            git remote remove $repo_name
+          fi
+        done < repo.conf
