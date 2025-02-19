@@ -26,9 +26,9 @@ jobs:
         gh auth status || echo "GitHub CLI installed"
         
     - name: Authenticate GitHub CLI
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh auth status
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: gh auth status
       
     - name: Sync repositories
       run: |
