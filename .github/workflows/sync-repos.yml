@@ -22,5 +22,5 @@ jobs:
 
       - name: Run fork update script using gh
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT }}
         run: python update_forks.py
