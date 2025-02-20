@@ -1,46 +1,29 @@
-name: Auto-Fork Repositories
+name: Update Forks
+
 on:
-  workflow_dispatch: # 允许手动触发
   schedule:
-    - cron: '0 0 * * *' # 每天自动检查一次
+    - cron: '0 0 * * *'  # Runs everyday at midnight UTC
+  workflow_dispatch:
 
 jobs:
-  fork-repositories:
+  update-forks:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up gh CLI
-        run: |
-          # 安装 gh CLI
-          sudo apt-get update
-          sudo apt-get install -y gh
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
 
-      - name: Authenticate gh CLI
+      - name: Install Git (if not already available)
+        run: sudo apt-get update && sudo apt-get install -y git
+
+      - name: Install required Python packages
+        run: pip install requests
+
+      - name: Run fork update script
         env:
-          GITHUB_TOKEN: ${{ secrets.PAT }} # 需要创建有 repo 权限的 PAT
-        run: |
-          echo "$GITHUB_TOKEN" | gh auth login --with-token
-
-      - name: Read repo.conf and fork repositories
-        run: |
-          # 读取 repo.conf 文件
-          while IFS= read -r line; do
-            if [[ "$line" =~ ^\[(.*)\]$ ]]; then
-              section=${BASH_REMATCH[1]}
-            elif [[ "$line" =~ ^remote_repo\ =\ (.*)$ ]]; then
-              remote_repo=${BASH_REMATCH[1]}
-            elif [[ "$line" =~ ^own_repo\ =\ (.*)$ ]]; then
-              own_repo=${BASH_REMATCH[1]}
-              # 检查是否已存在仓库
-              if gh repo view "$own_repo" >/dev/null 2>&1; then
-                echo "Repository $own_repo already exists."
-              else
-                # 执行 fork 操作
-                echo "Forking $remote_repo to $own_repo..."
-                gh repo fork "$remote_repo" --clone=false --remote=false --org "$GITHUB_REPOSITORY_OWNER"
-                echo "Successfully forked $remote_repo to $own_repo."
-              fi
-            fi
-          done < repo.conf
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python update_forks.py
