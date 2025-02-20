@@ -17,7 +17,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         repository: ${{ github.repository }}
-        token: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ secrets.PAT }}
         fetch-depth: 0
 
     - name: Install GitHub CLI
@@ -27,7 +27,7 @@ jobs:
         
     - name: Authenticate GitHub CLI
       env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ secrets.PAT }}
       run: gh auth status
       
     - name: Sync repositories
@@ -66,5 +66,5 @@ jobs:
           popd
         done < repo.conf
       env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ secrets.PAT }}
         
