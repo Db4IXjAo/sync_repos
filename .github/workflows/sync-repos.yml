@@ -7,38 +7,40 @@ on:
 jobs:
   fork-repositories:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        config:
-          - { remote: 'Flopcoin/Flopcoin', own: 'Flopcoin', branch: 'master' }
-          - { remote: 'dogecoin/dogecoin', own: 'dogecoin', branch: 'master' }
     steps:
-      - name: Check repository existence
-        id: check-repo
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up gh CLI
+        run: |
+          # 安装 gh CLI
+          sudo apt-get update
+          sudo apt-get install -y gh
+
+      - name: Authenticate gh CLI
         env:
           GITHUB_TOKEN: ${{ secrets.PAT }} # 需要创建有 repo 权限的 PAT
-          OWNER: ${{ github.repository_owner }}
-          REPO: ${{ matrix.config.own }}
         run: |
-          response=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/repos/$OWNER/$REPO")
+          echo "$GITHUB_TOKEN" | gh auth login --with-token
 
-          if [[ $(echo "$response" | jq -r .message) == "Not Found" ]]; then
-            echo "exists=false" >> $GITHUB_OUTPUT
-          else
-            echo "exists=true" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Fork repository
-        if: ${{ steps.check-repo.outputs.exists == 'false' }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT }}
-          REMOTE_REPO: ${{ matrix.config.remote }}
+      - name: Read repo.conf and fork repositories
         run: |
-          curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Content-Length: 0" \
-            "https://api.github.com/repos/$REMOTE_REPO/forks"
-          
-          echo "Successfully forked $REMOTE_REPO"
+          # 读取 repo.conf 文件
+          while IFS= read -r line; do
+            if [[ "$line" =~ ^\[(.*)\]$ ]]; then
+              section=${BASH_REMATCH[1]}
+            elif [[ "$line" =~ ^remote_repo\ =\ (.*)$ ]]; then
+              remote_repo=${BASH_REMATCH[1]}
+            elif [[ "$line" =~ ^own_repo\ =\ (.*)$ ]]; then
+              own_repo=${BASH_REMATCH[1]}
+              # 检查是否已存在仓库
+              if gh repo view "$own_repo" >/dev/null 2>&1; then
+                echo "Repository $own_repo already exists."
+              else
+                # 执行 fork 操作
+                echo "Forking $remote_repo to $own_repo..."
+                gh repo fork "$remote_repo" --clone=false --remote=false --org "$GITHUB_REPOSITORY_OWNER"
+                echo "Successfully forked $remote_repo to $own_repo."
+              fi
+            fi
+          done < repo.conf
