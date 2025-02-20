@@ -1,8 +1,8 @@
-name: Update Forks
+name: Update Forks with gh
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Runs everyday at midnight UTC
+    - cron: '0 0 * * *'  # Runs daily at midnight UTC
   workflow_dispatch:
 
 jobs:
@@ -17,13 +17,10 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Install Git (if not already available)
-        run: sudo apt-get update && sudo apt-get install -y git
+      - name: Install required Python package
+        run: pip install configparser
 
-      - name: Install required Python packages
-        run: pip install requests
-
-      - name: Run fork update script
+      - name: Run fork update script using gh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python update_forks.py
